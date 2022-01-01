@@ -63,5 +63,29 @@ loop:
 }
 
 func MapConcurrent[T1, T2 any](input []T1, f func(T1) T2) (output []T2) {
-	return MapConcurrentWithContext(context.Background(), input, f)
+	elemOrder := make(chan chan T2, len(input))
+
+	go func() {
+		defer close(elemOrder)
+
+		var wg sync.WaitGroup
+
+		for _, v := range input {
+			elemC := make(chan T2, 1)
+			wg.Add(1)
+			go func(elemC chan<- T2, v T1) {
+				elemC <- f(v)
+				wg.Done()
+			}(elemC, v)
+			elemOrder <- elemC
+		}
+
+		wg.Wait()
+	}()
+
+	for elemC := range elemOrder {
+		output = append(output, <-elemC)
+	}
+
+	return output
 }
