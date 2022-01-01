@@ -3,7 +3,7 @@ package channel
 import "context"
 
 func FilterWithContext[T any](ctx context.Context, inputC <-chan T, pred func(T) bool) <-chan T {
-	outputC := make(chan T)
+	outputC := make(chan T, 1)
 
 	go func() {
 		defer close(outputC)
@@ -12,7 +12,10 @@ func FilterWithContext[T any](ctx context.Context, inputC <-chan T, pred func(T)
 			select {
 			case <-ctx.Done():
 				return
-			case v := <-inputC:
+			case v, ok := <-inputC:
+				if !ok {
+					return
+				}
 				if pred(v) {
 					select {
 					case <-ctx.Done():
