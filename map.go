@@ -5,6 +5,8 @@ import (
 	"sync"
 )
 
+// Map returns a new slice populated with the result of calling the provided function
+// on every element in the provided input slice.
 func Map[T1, T2 any](input []T1, f func(T1) T2) (output []T2) {
 	for _, v := range input {
 		output = append(output, f(v))
@@ -12,6 +14,8 @@ func Map[T1, T2 any](input []T1, f func(T1) T2) (output []T2) {
 	return output
 }
 
+// MapConcurrentWithContext does the same as Map, but concurrently, and receives a context.Context to be
+// cancellable.
 func MapConcurrentWithContext[T1, T2 any](ctx context.Context, input []T1, f func(T1) T2) (output []T2) {
 	elemOrder := make(chan chan T2, len(input))
 
@@ -62,6 +66,7 @@ loop:
 	return output
 }
 
+// MapConcurrent does the same as Map, but concurrently.
 func MapConcurrent[T1, T2 any](input []T1, f func(T1) T2) (output []T2) {
 	elemOrder := make(chan chan T2, len(input))
 
