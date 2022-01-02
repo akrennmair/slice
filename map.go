@@ -2,7 +2,6 @@ package slice
 
 import (
 	"context"
-	"sync"
 )
 
 // Map returns a new slice populated with the result of calling the provided function
@@ -23,27 +22,22 @@ func MapConcurrentWithContext[T1, T2 any](ctx context.Context, input []T1, f fun
 	go func() {
 		defer close(elemOrder)
 
-		var wg sync.WaitGroup
-
 		for _, v := range input {
 			elemC := make(chan T2, 1)
-			wg.Add(1)
+			select {
+			case <-ctx.Done():
+				return
+			case elemOrder <- elemC:
+			}
 			go func(elemC chan<- T2, v T1) {
-				defer wg.Done()
 				select {
 				case <-ctx.Done():
 					return
 				case elemC <- f(v):
 				}
 			}(elemC, v)
-			select {
-			case <-ctx.Done():
-				return
-			case elemOrder <- elemC:
-			}
-		}
 
-		wg.Wait()
+		}
 	}()
 
 loop:
@@ -74,19 +68,13 @@ func MapConcurrent[T1, T2 any](input []T1, f func(T1) T2) (output []T2) {
 	go func() {
 		defer close(elemOrder)
 
-		var wg sync.WaitGroup
-
 		for _, v := range input {
 			elemC := make(chan T2, 1)
-			wg.Add(1)
+			elemOrder <- elemC
 			go func(elemC chan<- T2, v T1) {
 				elemC <- f(v)
-				wg.Done()
 			}(elemC, v)
-			elemOrder <- elemC
 		}
-
-		wg.Wait()
 	}()
 
 	for elemC := range elemOrder {
